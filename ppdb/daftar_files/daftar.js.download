@@ -1,0 +1,440 @@
+$.ajaxSetup({
+    headers: {
+        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+    }
+
+});
+
+$(document).ready(function ($) {
+    // Select2 Provinsi
+    $.ajax({
+            url: '/daftar/select/provinces',
+            type: 'GET',
+            dataType: 'json',
+        })
+        .done(function (data) {
+            $.each(data, function (i, item) {
+                $('#provinsi').append($('<option>', {
+                    value: item.id,
+                    text: item.name
+                }));
+            });
+        })
+        .fail(function (error) {
+            console.log(error);
+        });
+});
+
+// Disable Scroll Weels on Number
+$(document).on("wheel", "input[type=number]", function (e) {
+    $(this).blur();
+});
+
+// Tanggal Lahir
+$('.pilih-tanggal-lahir').pickadate({
+    selectYears: true,
+    selectMonths: true,
+    min: [2003, 0, 0],
+    max: [2015, 11, 30],
+    format: 'yyyy-mm-d'
+});
+
+// All About Alamat
+$('#provinsi').select2({});
+
+$('#kota').select2({});
+
+$('#kecamatan').select2({});
+
+$('#desa').select2({});
+
+$('#provinsi').on('change', function () {
+    $.ajax({
+            url: '/daftar/select/regencies',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                province_id: $(this).val()
+            }
+        })
+        .done(function (data) {
+            $("#kota").empty();
+            $("#kecamatan").empty();
+            $("#desa").empty();
+            $("#kota").append('<option value="">Pilih Kota / Kabupaten</option>');
+            $("#kecamatan").append('<option value="">Pilih Kota / Kabupaten dahulu</option>');
+            $("#desa").append('<option value="">Pilih Kecamatan dahulu</option>');
+            $.each(data, function (i, item) {
+                $('#kota').append($('<option>', {
+                    value: item.id,
+                    text: item.name
+                }));
+            });
+        })
+        .fail(function (error) {
+            console.log(error);
+        });
+});
+
+$('#kota').on('change', function () {
+    $.ajax({
+            url: '/daftar/select/districts',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                regency_id: $(this).val()
+            }
+        })
+        .done(function (data) {
+            $("#kecamatan").empty();
+            $("#desa").empty();
+            $("#kecamatan").append('<option value="">Pilih Kecamatan</option>');
+            $("#desa").append('<option value="">Pilih Kecamatan dahulu</option>');
+            $.each(data, function (i, item) {
+                $('#kecamatan').append($('<option>', {
+                    value: item.id,
+                    text: item.name
+                }));
+            });
+        })
+        .fail(function (error) {
+            console.log(error);
+        });
+});
+
+$('#kecamatan').on('change', function () {
+    $.ajax({
+            url: '/daftar/select/villages',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                district_id: $(this).val()
+            }
+        })
+        .done(function (data) {
+            $("#desa").empty();
+            $("#desa").append('<option value="">Pilih Desa / Kelurahan</option>');
+            $.each(data, function (i, item) {
+                $('#desa').append($('<option>', {
+                    value: item.id,
+                    text: item.name
+                }));
+            });
+        })
+        .fail(function (error) {
+            console.log(error);
+        });
+});
+
+async function getPaymentAsync(nomor) {
+    let response = await fetch(`/daftar/${nomor}`);
+    let getdata = await response.json();
+    return getdata;
+}
+
+$("input,select,textarea").not("[type=submit]").jqBootstrapValidation({
+    preventSubmit: true,
+    submitSuccess: function ($form, event) {
+        event.preventDefault()
+        Swal.fire({
+            title: 'Data Siap Dikirim?',
+            text: "Pastikan data yang anda masukan sudah benar!",
+            type: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Saya yakin. daftar sekarang!',
+            confirmButtonClass: 'btn btn-primary',
+            cancelButtonClass: 'btn btn-danger ml-1',
+            buttonsStyling: false,
+        }).then(function (result) {
+            if (result.value) {
+                form = $('#tampung').serialize()
+                $.ajax({
+                    url: '/daftar',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: form,
+                    cache: false,
+                    beforeSend: function () {
+                        $.LoadingOverlaySetup({
+                            background: "rgba(0, 0, 0, 0.5)",
+                            image: "/images/loading.gif",
+                            imageAnimation: "1.5s fadein",
+                            imageColor: "#ffcc00"
+                        });
+                        $.LoadingOverlay("show");
+                    },
+                    complete: function () {
+                        $.LoadingOverlay("hide");
+                    },
+                    success: function (getresponsepost) {
+                        var getx = document.getElementById("getx").value;
+                        if (getx == true) {
+                            Swal.fire({
+                                type: 'success',
+                                width: 1000,
+                                padding: '3em',
+                                title: 'Pendaftaran telah selesai!',
+                                html: getresponsepost.pesan,
+                                confirmButtonText: 'Cetak Kartu Peserta',
+                                confirmButtonClass: 'btn btn-info ml-1',
+                                showCancelButton: true,
+                                cancelButtonText: 'Tutup!',
+                                cancelButtonClass: 'btn btn-danger ml-1',
+                            }).then((get) => {
+                                window.open('/printkartu?nomor_pendaftaran=' + getresponsepost.NomorPendaftaran, '_blank');
+                                window.location.href = "/";
+                            })
+                        } else {
+                            Swal.fire({
+                                type: 'success',
+                                width: 1000,
+                                padding: '3em',
+                                title: 'Pendaftaran telah selesai!',
+                                html: getresponsepost.pesan,
+                                confirmButtonText: 'Lakukan pembayaran secara online',
+                                confirmButtonClass: 'btn btn-info ml-1',
+                                showCancelButton: true,
+                                cancelButtonText: 'Tutup!',
+                                cancelButtonClass: 'btn btn-danger ml-1',
+                                footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + getresponsepost.nama + '%0ANomor%20pendaftaran%20' + getresponsepost.NomorPendaftaran + '%0AAsal%20sekolah%20' + getresponsepost.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+                            }).then((get) => {
+                                if (get.value) {
+                                    getPaymentAsync(getresponsepost.NomorPendaftaran).then(
+                                        (getdata) => {
+                                            snap.pay(getdata.snap_token, {
+                                                // Optional
+                                                onSuccess: function (result) {
+                                                    console.log('pembayaran sukses')
+                                                },
+                                                // Optional
+                                                onPending: function (result) {
+                                                    console.log('pembayan di proses')
+                                                    Swal.fire({
+                                                        width: 600,
+                                                        title: `Hi ${getdata.nama} !!`,
+                                                        type: 'success',
+                                                        text: 'Harap segera melakukan pembayaran',
+                                                        confirmButtonText: 'Tutup',
+                                                        confirmButtonClass: 'btn btn-primary ml-1',
+                                                        footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + getdata.nama + '%0ANomor%20pendaftaran%20' + getdata.NomorPendaftaran + '%0AAsal%20sekolah%20' + getdata.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+                                                    }).then((result) => {
+                                                        location.reload();
+                                                    })
+                                                },
+                                                // Optional
+                                                onError: function (result) {
+                                                    console.log('pembayan di gagal')
+                                                },
+                                                onClose: function () {
+                                                    console.log('customer closed the popup without finishing the payment');
+                                                    location.reload();
+                                                }
+                                            });
+                                        }
+                                    );
+                                } else if (get.dismiss === Swal.DismissReason.cancel) {
+                                    location.reload();
+                                }
+                            })
+                        }
+                    },
+                    error: function (xhr) {
+                        var data = xhr.responseJSON;
+                        console.log(data.join("<br/>"))
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Oops...',
+                            html: data.join("<br/>"),
+                        })
+                    }
+                });
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                Swal.fire({
+                    title: 'Cancelled',
+                    text: 'Silahkan Edit Kembali Data Anda',
+                    type: 'error',
+                    confirmButtonClass: 'btn btn-success',
+                })
+            }
+        })
+    },
+    submitError: function ($form, event, errors) {
+        Swal.fire({
+            type: 'error',
+            title: 'Oops...',
+            text: 'Ada beberapa data yang belum anda masukan!',
+        })
+    }
+});
+
+// Ajax Request Check Validity Pendaftaran
+$('#cekstatus').on('click', function () {
+    Swal.fire({
+        title: 'Masukan Nomor Pendaftaran',
+        input: 'text',
+        inputAttributes: {
+            autocapitalize: 'off'
+        },
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Masukan Nomor Pendaftaran Anda!'
+            }
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Periksa',
+        confirmButtonClass: 'btn btn-primary',
+        cancelButtonClass: 'btn btn-danger ml-1',
+        showLoaderOnConfirm: true,
+        preConfirm: async (login) => {
+            try {
+                const response = await fetch(`/daftar/${login}`);
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            } catch (error) {
+                Swal.showValidationMessage(
+                    'Nomor Pendaftaran Tidak Ditemukan');
+            }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then((result) => {
+        if (result.value.verify == 1 && result.value.pembayaran == 1) {
+            Swal.fire({
+                width: 600,
+                title: `Hi ${result.value.nama} !!`,
+                type: 'success',
+                html: `Nomor Pendaftaran anda : <strong>${result.value.NomorPendaftaran}</strong><br>Status Verifikasi data: <strong>${result.value.StatusVerifikasiPendaftaran}</strong><br> Status biaya pendaftaran: <strong>${result.value.StatusPembayaranPendaftaran}`,
+                confirmButtonText: 'Download Kartu Ujian',
+                confirmButtonClass: 'btn btn-primary ml-1',
+                footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + result.value.nama + '%0ANomor%20pendaftaran%20' + result.value.NomorPendaftaran + '%0AAsal%20sekolah%20' + result.value.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+            }).then(function (getprint) {
+                $.ajax({
+                    url: 'downloadkartu',
+                    type: 'GET',
+                    data: {
+                        'nomor_pendaftaran': result.value.NomorPendaftaran
+                    },
+                    success: function (data) {
+                        window.location = '/downloadkartu?nomor_pendaftaran=' + result.value.NomorPendaftaran;
+                    },
+                })
+            })
+        } else if (result.value.verify == 1 && result.value.pembayaran == 0) {
+            Swal.fire({
+                width: 600,
+                title: `Hi ${result.value.nama} !!`,
+                type: 'success',
+                html: `Nomor Pendaftaran anda : <strong>${result.value.NomorPendaftaran}</strong><br>Status Verifikasi data: <strong>${result.value.StatusVerifikasiPendaftaran}</strong><br> Status biaya pendaftaran: <strong>${result.value.StatusPembayaranPendaftaran}`,
+                confirmButtonText: 'Lihat instruksi pembayaran',
+                confirmButtonClass: 'btn btn-primary ml-1',
+                footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + result.value.nama + '%0ANomor%20pendaftaran%20' + result.value.NomorPendaftaran + '%0AAsal%20sekolah%20' + result.value.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+            }).then(function (data) {
+                snap.pay(result.value.snap_token, {
+                    onSuccess: function (result) {
+                        console.log('success');
+                    },
+                    onPending: function (result) {
+                        console.log('pending');
+                    },
+                    onError: function (error) {
+                        $.ajax({
+                            url: 'expirepayment',
+                            type: 'POST',
+                            dataType: 'json',
+                            data: {
+                                'nomor_pendaftaran': result.value.NomorPendaftaran
+                            },
+                            success: function (data) {
+                                location.reload();
+                            },
+                            error: function (xhr) {
+                                var data = xhr.responseJSON;
+                                console.log(data)
+                                Swal.fire({
+                                    type: 'error',
+                                    title: 'Oops...',
+                                    text: 'GAGAL',
+                                })
+                            }
+                        });
+                    },
+                    onClose: function () {
+                        console.log('customer closed the popup without finishing the payment');
+                    }
+                })
+            })
+        } else if (result.value.pembayaran == 1) {
+            Swal.fire({
+                width: 600,
+                title: `Hi ${result.value.nama} !!`,
+                type: 'success',
+                html: `Nomor Pendaftaran anda : <strong>${result.value.NomorPendaftaran}</strong><br>Status Verifikasi data: <strong>${result.value.StatusVerifikasiPendaftaran}</strong><br> Status biaya pendaftaran: <strong>${result.value.StatusPembayaranPendaftaran}`,
+                confirmButtonText: 'Download Kartu Ujian',
+                confirmButtonClass: 'btn btn-primary ml-1',
+                footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + result.value.nama + '%0ANomor%20pendaftaran%20' + result.value.NomorPendaftaran + '%0AAsal%20sekolah%20' + result.value.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+            }).then(function (getprint) {
+                $.ajax({
+                    url: 'downloadkartu',
+                    type: 'GET',
+                    data: {
+                        'nomor_pendaftaran': result.value.NomorPendaftaran
+                    },
+                    success: function (data) {
+                        window.location = '/downloadkartu?nomor_pendaftaran=' + result.value.NomorPendaftaran;
+                    },
+                })
+            })
+        } else {
+            if (result.value.StatusPembayaran == 'pending') {
+                Swal.fire({
+                    width: 1000,
+                    title: `Hi ${result.value.nama} !!`,
+                    type: 'success',
+                    html: `Nomor Pendaftaran anda : <strong>${result.value.NomorPendaftaran}</strong><br>Status Verifikasi data: <strong>${result.value.StatusVerifikasiPendaftaran}</strong><br> Status biaya pendaftaran: <strong>${result.value.StatusPembayaranPendaftaran}`,
+                    confirmButtonText: 'Lihat instruksi pembayaran',
+                    confirmButtonClass: 'btn btn-primary ml-1',
+                    footer: '<a href="https://wa.me/6285745890375?text=Assalamualaikum.%0ANama%20saya%20' + result.value.nama + '%0ANomor%20pendaftaran%20' + result.value.NomorPendaftaran + '%0AAsal%20sekolah%20' + result.value.asal + '%0Aboleh%20nanya%20sesuatu%20gak%20min%20%3F" target="_blank" >Klik / Tap disini untuk Info lebih lanjut (Chat Via WA)</a>'
+                }).then(function (data) {
+                    snap.pay(result.value.snap_token, {
+                        onSuccess: function (result) {
+                            console.log('success');
+                        },
+                        onPending: function (result) {
+                            console.log('pending');
+                        },
+                        onError: function (error) {
+                            // console.log('error');
+                            // console.log(error);
+                            $.ajax({
+                                url: 'expirepayment',
+                                type: 'POST',
+                                dataType: 'json',
+                                data: {
+                                    'nomor_pendaftaran': result.value.NomorPendaftaran
+                                },
+                                success: function (data) {
+                                    location.reload();
+                                },
+                                error: function (xhr) {
+                                    var data = xhr.responseJSON;
+                                    console.log(data)
+                                    Swal.fire({
+                                        type: 'error',
+                                        title: 'Oops...',
+                                        text: 'GAGAL',
+                                    })
+                                }
+                            });
+                        },
+                        onClose: function () {
+                            console.log('customer closed the popup without finishing the payment');
+                        }
+                    })
+                })
+            }
+        }
+    })
+});
